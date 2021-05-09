@@ -1,0 +1,570 @@
+#+begin_src elisp
+;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+;; Place your private configuration here! Remember, you do not need to run 'doom
+;; sync' after modifying this file!
+#+end_src
+
+* Identity
+#+begin_src elisp
+
+(setq user-full-name "Joey Eremondi"
+      user-mail-address "joey@eremondi.com")
+#+end_src
+
+* Fonts and Themes
+
+** Font
+Doom exposes five (optional) variables for controlling fonts in Doom. Here
+are the three important ones:
+
+ + `doom-font'
+ + `doom-variable-pitch-font'
+ + `doom-big-font' -- used for `doom-big-font-mode' use this for   presentations or streaming.
+
+ They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
+ font string. You generally only need these two:
+
+#+begin_src elisp
+ (setq doom-font (font-spec :family "Source Code Pro" :size 14 :weight 'semi-light)
+       doom-variable-pitch-font (font-spec :family "Linux Libertine O" :size 14))
+#+end_src
+
+There are two ways to load a theme. Both assume the theme is installed and
+available. You can either set `doom-theme' or manually load a theme with the
+`load-theme' function. This is the default:
+
+** Theme
+
+#+begin_src elisp
+(setq doom-theme 'doom-one)
+#+end_src
+
+** Window
+#+begin_src elisp
+  (add-to-list 'initial-frame-alist '(fullscreen . maximized))
+#+end_src
+
+*** Line Number Display
+
+  This determines the style of line numbers in effect. If set to `nil', line
+  numbers are disabled. For relative line numbers, set this to `relative'.
+#+begin_src elisp
+(setq display-line-numbers-type t)
+
+#+end_src
+
+ Here are some additional functions/macros that could help you configure Doom:
+
+ - `load!' for loading external *.el files relative to this one
+ - `use-package!' for configuring packages
+ - `after!' for running code after a package has loaded
+ - `add-load-path!' for adding directories to the `load-path', relative to
+   this file. Emacs searches the `load-path' when you load packages with
+   `require' or `use-package'.
+ - `map!' for binding new keys
+
+ To get information about any of these functions/macros, move the cursor over
+ the highlighted symbol at press 'K' (non-evil users must press 'C-c c k').
+ This will open documentation for it, including demos of how they are used.
+
+ You can also try 'gd' (or 'C-c c d') to jump to their definition and see how
+ they are implemented.
+
+
+* Editor/Evil Config
+
+** Local Leader
+#+begin_src elisp
+(setq doom-localleader-key ",")
+#+end_src
+** Evil Escape
+
+#+begin_src elisp
+(setq evil-escape-key-sequence "fd")
+(setq-default evil-escape-delay 0.4)
+#+end_src
+
+** CUA Mode
+#+begin_src elisp
+;; (cua-mode t)
+#+end_src
+** Hybrid mode (Disable evil in insert mode)
+#+begin_src elisp
+(after! evil
+  (setq evil-disable-insert-state-bindings t))
+#+end_src
+
+** Random Doom Stuff / Better Defaults
+*** Spacemacs-like Keybindings
+#+begin_src elisp
+(map! :leader
+      :desc "Open terminal" "'" #'+shell/toggle
+      :desc "Open terminal" ";" #'evilnc-comment-operator
+      :desc "Open terminal" "SPC" #'counsel-M-x
+      )
+
+
+#+end_src
+*** Better defaults from Tecosaur
+#+begin_src elisp
+
+(setq-default
+ delete-by-moving-to-trash t                      ; Delete files to trash
+ window-combination-resize t                      ; take new window space from all other windows (not just current)
+ ;; x-stretch-cursor t    ; Stretch cursor to the glyph width
+ )
+
+(setq undo-limit 80000000                         ; Raise undo-limit to 80Mb
+      evil-want-fine-undo t                       ; By default while in insert all changes are one big blob. Be more granular
+      ;; auto-save-default t                         ; Nobody likes to loose work, I certainly don't
+      truncate-string-ellipsis "…")               ; Unicode ellispis are nicer than "...", and also save /precious/ space
+
+(display-time-mode 1)                             ; Enable time in the mode-line
+
+(if (equal "Battery status not available"
+           (battery))
+    (display-battery-mode 1)                        ; On laptops it's nice to know how much power you have
+  )
+
+(global-subword-mode 1)                           ; Iterate through CamelCase words
+
+(setq doom-fallback-buffer-name "► Doom"
+      +doom-dashboard-name "► Doom")
+#+end_src
+*** Async Org Tangling
+#+begin_src elisp
+
+(defadvice! +literate-tangle-async-h ()
+  "A very simplified version of `+literate-tangle-h', but async."
+  :override #'+literate-tangle-h
+  (let ((default-directory doom-private-dir))
+    (async-shell-command
+     (format "emacs --batch --eval \"(progn \
+(require 'org) (setq org-confirm-babel-evaluate nil) \
+(org-babel-tangle-file \\\"%s\\\"))\""
+             +literate-config-file))))
+#+end_src
+*** Doom modeline improvements
+#+begin_src elisp
+
+
+(after! doom-modeline
+  (doom-modeline-def-segment buffer-name
+    "Display the current buffer's name, without any other information."
+    (concat
+     (doom-modeline-spc)
+     (doom-modeline--buffer-name)))
+
+  (doom-modeline-def-segment pdf-icon
+    "PDF icon from all-the-icons."
+    (concat
+     (doom-modeline-spc)
+     (doom-modeline-icon 'octicon "file-pdf" nil nil
+                         :face (if (doom-modeline--active)
+                                   'all-the-icons-red
+                                 'mode-line-inactive)
+                         :v-adjust 0.02)))
+
+  (defun doom-modeline-update-pdf-pages ()
+    "Update PDF pages."
+    (setq doom-modeline--pdf-pages
+          (let ((current-page-str (number-to-string (eval `(pdf-view-current-page))))
+                (total-page-str (number-to-string (pdf-cache-number-of-pages))))
+            (concat
+             (propertize
+              (concat (make-string (- (length total-page-str) (length current-page-str)) ? )
+                      " P" current-page-str)
+              'face 'mode-line)
+             (propertize (concat "/"  total-page-str) 'face 'doom-modeline-buffer-minor-mode)))))
+
+  (doom-modeline-def-segment pdf-pages
+    "Display PDF pages."
+    (if (doom-modeline--active) doom-modeline--pdf-pages
+      (propertize doom-modeline--pdf-pages 'face 'mode-line-inactive)))
+
+  (doom-modeline-def-modeline 'pdf
+    '(bar window-number pdf-pages pdf-icon buffer-name)
+    '(misc-info matches major-mode process vcs)))
+#+end_src
+*** Some package configs
+
+#+begin_src elisp
+
+(use-package! vlf-setup
+  :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
+
+
+(use-package! page-break-lines
+  :commands page-break-lines-mode
+  :init
+  (autoload 'turn-on-page-break-lines-mode "page-break-lines"))
+
+(use-package! org-pretty-table
+  :commands (org-pretty-table-mode global-org-pretty-table-mode))
+
+(use-package! org-ol-tree
+  :commands org-ol-tree)
+(map! :map org-mode-map
+      :after org
+      :localleader
+      :desc "Outline" "O" #'org-ol-tree)
+
+(use-package! org-transclusion
+  :commands org-transclusion-mode
+  :init
+  (map! :after org :map org-mode-map
+        "<f12>" #'org-transclusion-mode))
+
+
+(use-package! org-chef
+  :commands (org-chef-insert-recipe org-chef-get-recipe-from-url))
+
+
+(setq projectile-ignored-projects '("~/" "/tmp" "~/.emacs.d/.local/straight/repos/"))
+(defun projectile-ignored-project-function (filepath)
+  "Return t if FILEPATH is within any of `projectile-ignored-projects'"
+  (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
+#+end_src
+
+*** Treemacs Config
+Allow ignoring of certain files
+#+begin_src elisp
+(after! treemacs
+  (defvar treemacs-file-ignore-extensions '()
+    "File extension which `treemacs-ignore-filter' will ensure are ignored")
+  (defvar treemacs-file-ignore-globs '()
+    "Globs which will are transformed to `treemacs-file-ignore-regexps' which `treemacs-ignore-filter' will ensure are ignored")
+  (defvar treemacs-file-ignore-regexps '()
+    "RegExps to be tested to ignore files, generated from `treeemacs-file-ignore-globs'")
+  (defun treemacs-file-ignore-generate-regexps ()
+    "Generate `treemacs-file-ignore-regexps' from `treemacs-file-ignore-globs'"
+    (setq treemacs-file-ignore-regexps (mapcar 'dired-glob-regexp treemacs-file-ignore-globs)))
+  (if (equal treemacs-file-ignore-globs '()) nil (treemacs-file-ignore-generate-regexps))
+  (defun treemacs-ignore-filter (file full-path)
+    "Ignore files specified by `treemacs-file-ignore-extensions', and `treemacs-file-ignore-regexps'"
+    (or (member (file-name-extension file) treemacs-file-ignore-extensions)
+        (let ((ignore-file nil))
+          (dolist (regexp treemacs-file-ignore-regexps ignore-file)
+            (setq ignore-file (or ignore-file (if (string-match-p regexp full-path) t nil)))))))
+  (add-to-list 'treemacs-ignored-file-predicates #'treemacs-ignore-filter))
+
+#+end_src
+The files to ignore:
+
+#+begin_src elisp
+
+        (setq treemacs-file-ignore-extensions
+              '(;; LaTeX
+                "aux"
+                "ptc"
+                "fdb_latexmk"
+                "fls"
+                "synctex.gz"
+                "toc"
+                ;; LaTeX - glossary
+                "glg"
+                "glo"
+                "gls"
+                "glsdefs"
+                "ist"
+                "acn"
+                "acr"
+                "alg"
+                ;; LaTeX - pgfplots
+                "mw"
+                ;; LaTeX - pdfx
+                "pdfa.xmpi"
+                ;; agdai
+                "agdai"
+                ))
+        (setq treemacs-file-ignore-globs
+              '(;; LaTeX
+                "*/_minted-*"
+                ;; AucTeX
+                "*/.auctex-auto"
+                "*/_region_.log"
+                "*/_region_.tex"))
+#+end_src
+
+*** Which-key
+
+#+begin_src elisp
+
+(setq which-key-allow-multiple-replacements t)
+(after! which-key
+  (pushnew!
+   which-key-replacement-alist
+   '(("" . "\\`+?evil[-:]?\\(?:a-\\)?\\(.*\\)") . (nil . "◂\\1"))
+   '(("\\`g s" . "\\`evilem--?motion-\\(.*\\)") . (nil . "◃\\1"))
+   ))
+#+end_src
+
+** Abbrevs
+
+*** TODO https://www.gnu.org/software/emacs/manual/html_node/elisp/Abbrevs.html
+
+* Org Config
+
+** Ord Directory
+If you use `org' and don't want your org files in the default location below,
+change `org-directory'. It must be set before org loads!
+#+begin_src elisp
+(setq org-directory "~/org/")
+#+end_src
+
+
+** Org Agenda Files
+
+#+begin_src elisp
+(setq org-agenda-files (list
+                          "~/org/Tasks.org"
+                          "~/org/Agenda.org"))
+
+#+end_src
+** Org-Capture
+*** Templates
+#+begin_src elisp
+  (setq org-capture-templates
+        '(("a" "Appointment" entry (file  "~/org/Agenda.org")
+           "* %?\n\n%^T\n\n:PROPERTIES:\n\n:END:\n\n")
+          ("l" "Link" entry (file+headline "~/org/Links.org" "Websites to Read")
+           "* %? %^L %^g \n%T" :prepend t)
+          ("p" "Paper" entry (file+headline "~/org/Papers.org" "Papers to Read")
+           "* %? %^L %^g \n%T" :prepend t)
+          ("v" "Talks" entry (file+headline "~/org/Talks.org" "Talks to Watch")
+           "* %? %^L %^g \n%T" :prepend t)
+          ("t" "To Do Item" entry (file+headline "~/org/Tasks.org" "TODOs")
+           "* TODO %?\n%u" :prepend t)
+          ("n" "Note" entry (file+headline "~/org/Notes.org" "Note space")
+           "* %?\n%u" :prepend t)))
+#+end_src
+
+** General config (i.e. from Tecosaur)
+*** Defaults
+#+begin_src elisp
+(setq org-directory "~/.org"                      ; let's put files here
+      org-use-property-inheritance t              ; it's convenient to have properties inherited
+      org-log-done 'time                          ; having the time a item is done sounds convenient
+      org-list-allow-alphabetical t               ; have a. A. a) A) list bullets
+      org-export-in-background t                  ; run export processes in external emacs process
+      org-catch-invisible-edits 'smart            ; try not to accidently do weird stuff in invisible regions
+      org-export-with-sub-superscripts '{})       ; don't treat lone _ / ^ as sub/superscripts, require _{} / ^{}
+
+#+end_src
+*** Comments in Headers
+#+begin_src elisp
+
+;; Comments in header
+(setq org-babel-default-header-args
+      '((:session . "none")
+        (:results . "replace")
+        (:exports . "code")
+        (:cache . "no")
+        (:noweb . "no")
+        (:hlines . "no")
+        (:tangle . "no")
+        (:comments . "link")))
+
+#+end_src
+
+*** Different bullets by indent level
+#+begin_src elisp
+
+(setq org-list-demote-modify-bullet '(("+" . "-") ("-" . "+") ("*" . "+") ("1." . "a.")))
+
+#+end_src
+
+*** Spell-checking for org-mode
+
+#+begin_src elisp
+
+        (add-hook 'org-mode-hook 'turn-on-flyspell)
+#+end_src
+
+
+*** Org-ref
+
+#+begin_src elisp
+(use-package! org-ref
+  :after org
+  :config
+  (setq org-ref-completion-library 'org-ref-ivy-cite)
+  (defadvice! org-ref-open-bibtex-pdf-a ()
+    :override #'org-ref-open-bibtex-pdf
+    (save-excursion
+      (bibtex-beginning-of-entry)
+      (let* ((bibtex-expand-strings t)
+             (entry (bibtex-parse-entry t))
+             (key (reftex-get-bib-field "=key=" entry))
+             (pdf (or
+                   (car (-filter (lambda (f) (string-match-p "\\.pdf$" f))
+                                 (split-string (reftex-get-bib-field "file" entry) ";")))
+                   (funcall org-ref-get-pdf-filename-function key))))
+        (if (file-exists-p pdf)
+            (org-open-file pdf)
+          (ding)))))
+  (defadvice! org-ref-open-pdf-at-point-a ()
+    "Open the pdf for bibtex key under point if it exists."
+    :override #'org-ref-open-pdf-at-point
+    (interactive)
+    (let* ((results (org-ref-get-bibtex-key-and-file))
+           (key (car results))
+           (pdf-file (funcall org-ref-get-pdf-filename-function key)))
+      (with-current-buffer (find-file-noselect (cdr results))
+        (save-excursion
+          (bibtex-search-entry (car results))
+          (org-ref-open-bibtex-pdf))))))
+#+end_src
+
+***  LSP in src-blocks
+
+#+begin_src elisp
+
+(cl-defmacro lsp-org-babel-enable (lang)
+  "Support LANG in org source code block."
+  (setq centaur-lsp 'lsp-mode)
+  (cl-check-type lang stringp)
+  (let* ((edit-pre (intern (format "org-babel-edit-prep:%s" lang)))
+         (intern-pre (intern (format "lsp--%s" (symbol-name edit-pre)))))
+    `(progn
+       (defun ,intern-pre (info)
+         (let ((file-name (->> info caddr (alist-get :file))))
+           (unless file-name
+             (setq file-name (make-temp-file "babel-lsp-")))
+           (setq buffer-file-name file-name)
+           (lsp-deferred)))
+       (put ',intern-pre 'function-documentation
+            (format "Enable lsp-mode in the buffer of org source block (%s)."
+                    (upcase ,lang)))
+       (if (fboundp ',edit-pre)
+           (advice-add ',edit-pre :after ',intern-pre)
+         (progn
+           (defun ,edit-pre (info)
+             (,intern-pre info))
+           (put ',edit-pre 'function-documentation
+                (format "Prepare local buffer environment for org source block (%s)."
+                        (upcase ,lang))))))))
+(defvar org-babel-lang-list
+  '("go" "python" "ipython" "bash" "sh"))
+(dolist (lang org-babel-lang-list)
+  (eval `(lsp-org-babel-enable ,lang)))
+#+end_src
+
+** Appearance
+
+*** Mixed pitch mode
+#+begin_src elisp
+(add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
+#+end_src
+
+* Mode/Language Specific Configs
+** LaTeX
+#+begin_src  elisp
+(after! latex
+#+end_src
+*** Auto-update preview
+**** TODO check this?
+    #+begin_src elisp
+  (add-hook 'doc-view-mode-hook 'auto-revert-mode)
+    #+end_src
+
+*** PDf Viewer and Synctex
+#+begin_src  elisp
+  (setq TeX-source-correlate-mode t)
+  (setq TeX-source-correlate-start-server t)
+  (setq TeX-source-correlate-method 'synctex)
+  (setq TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view)))
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (add-hook 'TeX-after-compilation-finished-functions
+            #'TeX-revert-document-buffer)
+
+
+
+#+end_src
+*** main.tex is my main file
+#+begin_src elisp
+
+  (setq-default TeX-master "main") ; All master files called "main".
+#+end_src
+*** Magic LaTeX buffer for pretty-printing and live preview
+#+begin_src elisp
+  ;; (use-package magic-latex-buffer
+  ;;   :init
+  ;;   (add-hook 'LaTeX-mode-hook 'magic-latex-buffer)
+  ;;   :config
+  ;;   (setq magic-latex-enable-block-highlight t
+  ;;         magic-latex-enable-suscript        t
+  ;;         magic-latex-enable-pretty-symbols  t
+  ;;         magic-latex-enable-block-align     nil
+  ;;         magic-latex-enable-inline-image    nil
+  ;;         magic-latex-enable-minibuffer-echo t)
+  ;;   (push '("\\\\bbb\\>"      .  "𝔹") ml/symbols)
+  ;;   (push '("|-"      .  "⊢") ml/symbols)
+  ;;   (push '("=>\\>"      .  "⇒") ml/symbols)
+  ;;   (push '("->\\>"      .  "→") ml/symbols)
+  ;;   (push '("-->\\>"      .  "⟶") ml/symbols)
+  ;;   (push '("<=\\>"      .  "⇐") ml/symbols)
+  ;;   (push '("~=~\\>"      .  "≅") ml/symbols)
+  ;;   (push '("=-=\\>"      .  "≅") ml/symbols)
+  ;;   (push '("==\\>"      .  "≡") ml/symbols)
+  ;;   (push '("\\\\Vert\\>"      .  "||") ml/symbols)
+  ;;   (push '("\\\\ldotp\\>"      .  "．") ml/symbols)
+  ;;   (push '("\\\\vert\\>"      .  "|") ml/symbols)
+  ;;   ;; (push '("\\\\citep\\>"    .  "♇") ml/symbols)
+  ;;   (push '("\\\\textsuperscript\\>"  .  "⁺") ml/symbols)
+  ;;   ;; (push '("\\\\label\\>"    .  "🏷") ml/symbols)
+  ;;   ;; (push '("\\\\chapter\\>"    .  "🕅") ml/symbols)
+  ;;   (push '("\\\\Type\\>"    .  "Tʏᴘᴇ") ml/symbols)
+  ;;   (push '("\\\\defbnf\\>"    .  "⩴") ml/symbols)
+  ;;   (push '("\\\\bnfalt\\>"    .  "∣") ml/symbols)
+  ;;   ;; (push '("\\\\section\\>"    .  "§") ml/symbols)
+  ;;   ;; (push '("\\\\subsection\\>"    .  "§§") ml/symbols)
+  ;;   ;; (push '("\\\\subsubsection\\>"  .  "§§§") ml/symbols)
+  ;;   ;; (push '("\\\\pageref\\>"    .  "⎗") ml/symbols)
+  ;;   (push '("\\\\qm\\>"    .  "❓") ml/symbols))
+#+end_src
+
+*** Local-leader Keybindings
+#+begin_src  elisp
+  (map! :localleader
+        :map LaTeX-mode-map
+        "a" #'TeX-command-run-all
+        "e" #'LaTeX-environment
+        "c" #'LaTeX-close-environment
+        "," #'LaTeX-insert-macro
+        )
+  ;; (map! :i  "S-SPC" #'LaTeX-insert-macro)
+  ;; (map! :mode LaTeX
+  ;;       "S-SPC" #'LaTeX-insert-macro)
+#+end_src
+*** End LaTeX block
+
+#+begin_src  elisp
+)
+#+end_src
+** Agda
+*** Custom Keybindings
+ #+begin_src elisp
+
+  (map! :after agda2-mode
+        :localleader
+        :map agda2-mode-map
+        ";" #'agda2-comment-dwim-rest-of-buffer
+        )
+
+  (map! :after agda2-mode
+        :map agda2-mode-map
+        :localleader
+        (:prefix-map ("i" . "insert")
+         (:desc "Insert data declaration" "d" #'agda2-abbrevs-data
+          :desc "Insert record declaration" "r" #'agda2-abbrevs-record
+          :desc "Insert using declaration" "u" #'agda2-abbrevs-using
+          :desc "Insert forall" "f" #'agda2-abbrevs-forall
+          :desc "Insert hiding declaration" "h" #'agda2-abbrevs-hiding
+          :desc "Insert module declaration" "m" #'agda2-abbrevs-module
+          :desc "Insert code block" "c" #'agda2-abbrevs-code-block
+          :desc "Insert record value" "v" #'agda2-abbrevs-record-value
+          )
+         )
+        )
+ #+end_src
