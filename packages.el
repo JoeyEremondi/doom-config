@@ -81,3 +81,5 @@
 (package! org-chef)
 
 (package! graphviz-dot-mode)
+
+(package! mixed-pitch)

@@ -86,7 +86,7 @@ available. You can either set `doom-theme' or manually load a theme with the
 
 ** CUA Mode
 #+begin_src elisp
-;; (cua-mode t)
+(cua-mode t)
 #+end_src
 ** Hybrid mode (Disable evil in insert mode)
 #+begin_src elisp
@@ -543,6 +543,13 @@ change `org-directory'. It must be set before org loads!
 )
 #+end_src
 ** Agda
+*** Load agda-mode (auto-added by the agda-mode binary)
+
+#+begin_src elisp
+(load-file (let ((coding-system-for-read 'utf-8))
+                (shell-command-to-string "agda-mode locate")))
+#+end_src
+
 *** Custom Keybindings
  #+begin_src elisp
 
