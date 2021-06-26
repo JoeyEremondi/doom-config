@@ -83,3 +83,23 @@
 (package! graphviz-dot-mode)
 
 (package! mixed-pitch)
+
+(package! nano-theme :recipe (:host github :repo "rougier/nano-theme"))
+
+(package! company-org-block :recipe (:host github :repo "xenodium/company-org-block"))
+
+
+(package! org-padding
+  :recipe (:host github :repo "TonCherAmi/org-padding"))
+
+
+(package! org-starless
+  :recipe (:host github :repo "TonCherAmi/org-starless"))
+
+(package! org-marginalia
+  :recipe (:host github :repo "nobiot/org-marginalia"))
+
+(package! svg-tag-mode
+  :recipe (:host github :repo "rougier/svg-tag-mode"))
+
+(package! company-reftex)
